@@ -1,0 +1,3 @@
+.*.swp
+buggie/*.py[co]
+buggie.db
