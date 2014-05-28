@@ -107,6 +107,11 @@ def invalid_userid_operations(userid):
     app.logger.warn("Attempted POST on /users/%d" % userid)
     abort(405)
 
+@app.route('/users/<int:userid>/bugs', methods=['GET'])
+def get_user_bugs(userid):
+    foundbugs = bugstorage.get_user_by_id(userid).bugs
+    return json.dumps([bug.marshall_dict() for bug in foundbugs])
+
 
 
 ############################################################
@@ -115,17 +120,134 @@ def invalid_userid_operations(userid):
 
 @app.route('/projects', methods=['GET'])
 def get_projects():
-    pass
+    projects = bugstorage.get_projects()
+    return json.dumps([project.marshall_dict() for project in projects ])
 
 @app.route('/projects', methods=['POST'])
 def create_project():
-    pass
+    try:
+        data = json.loads(request.data)
+    except ValueError, e:
+        app.logger.error(e)
+        abort(500)
+
+    try:
+        validate_input(data, ['name', 'description'])
+    except ValueError:
+        app.logger.info("Invalid data passed as post to /projects: %s" % str(data))
+        abort(400)
+
+    newproject = bugstorage.create_project(data['name'], data['description'])
+    return json.dumps(newproject)
+ 
+@app.route('/projects', methods=['PUT', 'DELETE'])
+def invalid_projects_operation():
+    app.logger.warn("Attempted %s on /projects" % request.method)
+
+
+@app.route('/projects/<int:projectid>', methods=['GET'])
+def get_project_by_id(projectid):
+    foundproject = bugstorage.get_project_by_id(projectid)
+    return json.dumps(foundproject.marshall_dict())
+
+@app.route('/projects/<int:projectid>', methods=['PUT'])
+def modify_project(projectid):
+    try:
+        data = json.loads(request.data)
+    except ValueError, e:
+        app.logger.error(e)
+        abort(500)
+
+    try:
+        validate_input(data, ['name', 'description'])
+    except ValueError:
+        app.logger.info("Invalid data passed as put to /projects/%d: %s" % (projectid, str(data)))
+        abort(400)
+
+    newproject = bugstorage.modify_project(data['name'], data['description'])
+    return json.dumps(newproject)
+
+@app.route('/projects/<int:projectid>', methods=['DELETE'])
+def delete_project(projectid):
+    bugstorage.delete_project(projectid)
+    return "OK"
+
+@app.route('/projects/<int:projectid>', methods=['POST'])
+def invalid_projectid_operations(projectid):
+    app.logger.warn("Attempted POST on /projects/%d" % projectid)
+    abort(405)
+
+@app.route('/projects/<int:projectid>/bugs', methods=['GET'])
+def get_project_bugs(projectid):
+    foundbugs = bugstorage.get_user_by_id(projectid).bugs
+    return json.dumps([bug.marshall_dict() for bug in foundbugs])
 
 
 ############################################################
 # Bug Interface Routes
 ############################################################
 
+@app.route('/bugs')
+def get_bugs():
+    bugs = bugstorage.get_bugs()
+    return json.dumps([bug.marshall_dict() for bug in bugs])
+
+@app.route('/bugs', methods=['POST'])
+def create_bug():
+    try:
+        data = json.loads(request.data)
+    except ValueError, e:
+        app.logger.error(e)
+        abort(500)
+
+    try:
+        validate_input(data, ['title', 'summary', 'project_name'])
+    except ValueError:
+        app.logger.info("Invalid data passed as put to /bugs: %s" %  str(data))
+        abort(400)
+
+    if not 'user_name' in data:
+        user_name = None
+    else:
+        user_name = data['user_name']
+
+    newbug_dict = bugstorage.create_bug(data['title'], data['summary'], data['project_name'], user_name)
+
+    return newbug_dict
+
+@app.route('/bugs/<int:bugid>')
+def get_bug(bugid):
+    try:
+        foundbug = bugstorage.get_bug_by_id(bugid)
+    except ValueError:
+        app.logger.info("Could not find bug with id %d" % bugid)
+        abort(404)
+
+    return json.dumps(foundbug.marshall_dict())
+
+@app.route('/bugs/<int:bugid>', methods=['PUT'])
+def modify_bug(bugid):
+    try:
+        data = json.loads(request.data)
+    except ValueError, e:
+        app.logger.error(e)
+        abort(500)
+
+    try:
+        validate_input(data, ['title', 'summary', 'project_name', 'state'])
+    except ValueError:
+        app.logger.info("Invalid data passed as put to /projects/%d: %s" % (bugid, str(data)))
+        abort(400)
+
+    if not 'user_name' in data:
+        user_name = None
+    else:
+        user_name = data['user_name']
+
+    newbug_dict = bugstorage.modify_bug(data['title'], data['summary'],
+                                        data['project_name'], data['state'],
+                                        user_name)
+    return newbug_dict
 
 if __name__ == '__main__':
     app.run()
